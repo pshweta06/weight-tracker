@@ -2,7 +2,7 @@ services:
   - type: web
     name: weight-tracker
     env: node
-    buildCommand: NODE_ENV=development npm install && cd client && NODE_ENV=development npm install && (test -f node_modules/.bin/vite && echo "✓ Vite found" || (echo "✗ Vite not found!" && ls -la node_modules/.bin/ 2>/dev/null | head -10 || echo "node_modules/.bin does not exist" && exit 1)) && npm run build && cd .. && echo "Build completed, checking build directory..." && (test -f client/build/index.html && echo "✓ Build verified: index.html exists" || (echo "✗ ERROR: Build failed - index.html not found" && exit 1))
+    buildCommand: npm install && cd client && npm install && npm run build && cd .. && echo "Build completed, checking build directory..." && (test -f client/build/index.html && echo "✓ Build verified: index.html exists" || (echo "✗ ERROR: Build failed - index.html not found" && exit 1))
     startCommand: npm start
     envVars:
       - key: NODE_ENV
