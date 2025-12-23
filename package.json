@@ -8,10 +8,12 @@
     "server": "nodemon server/index.js",
     "client": "cd client && npm run dev",
     "build": "cd client && npm run build",
-    "start": "node server/index.js",
+    "build:client": "cd client && npm install && npm run build",
+    "start": "node scripts/verify-build.js && node server/index.js",
     "install-all": "npm install && cd client && npm install",
     "postinstall": "cd client && npm install",
-    "heroku-postbuild": "npm run install-all && npm run build"
+    "heroku-postbuild": "npm run build:client",
+    "render-build": "npm run install-all && npm run build"
   },
   "keywords": ["weight", "tracker", "health"],
   "author": "",

@@ -35,31 +35,49 @@ app.use('/api/user', userRoutes);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
-  const buildPath = path.join(__dirname, '../client/build');
-  const indexPath = path.join(buildPath, 'index.html');
-  
-  // Check if build directory exists
   const fs = require('fs');
-  if (!fs.existsSync(buildPath)) {
-    console.error(`Build directory not found at: ${buildPath}`);
-    console.error('Make sure to run: npm run build before starting the server');
+  
+  // Try multiple possible build paths (Render might use different structure)
+  const possiblePaths = [
+    path.join(__dirname, '../client/build'),
+    path.join(__dirname, '../../client/build'),
+    path.join(process.cwd(), 'client/build'),
+    path.join(process.cwd(), 'build'),
+  ];
+  
+  let buildPath = null;
+  let indexPath = null;
+  
+  // Find the first existing build directory
+  for (const possiblePath of possiblePaths) {
+    const possibleIndexPath = path.join(possiblePath, 'index.html');
+    if (fs.existsSync(possibleIndexPath)) {
+      buildPath = possiblePath;
+      indexPath = possibleIndexPath;
+      console.log(`Found build directory at: ${buildPath}`);
+      break;
+    }
   }
   
-  app.use(express.static(buildPath));
-  
-  // Serve React app for all non-API routes
-  app.get('*', (req, res, next) => {
-    // Skip API routes
-    if (req.path.startsWith('/api')) {
-      return next();
-    }
+  if (!buildPath) {
+    console.error('Build directory not found. Tried paths:');
+    possiblePaths.forEach(p => console.error(`  - ${p}`));
+    console.error('Current working directory:', process.cwd());
+    console.error('__dirname:', __dirname);
+    console.error('Make sure to run: npm run build before starting the server');
+  } else {
+    app.use(express.static(buildPath));
     
-    if (fs.existsSync(indexPath)) {
+    // Serve React app for all non-API routes
+    app.get('*', (req, res, next) => {
+      // Skip API routes
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      
       res.sendFile(indexPath);
-    } else {
-      res.status(500).send('Build files not found. Please ensure the frontend is built.');
-    }
-  });
+    });
+  }
 }
 
 app.listen(PORT, () => {
