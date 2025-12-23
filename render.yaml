@@ -2,7 +2,7 @@ services:
   - type: web
     name: weight-tracker
     env: node
-    buildCommand: npm run install-all && npm run build && echo "Build completed, checking build directory..." && (test -f client/build/index.html && echo "✓ Build verified: index.html exists" || (echo "✗ ERROR: Build failed - index.html not found" && exit 1))
+    buildCommand: npm run install-all && echo "Verifying client dependencies..." && (cd client && test -d node_modules && echo "✓ Client dependencies installed" || (echo "✗ Client dependencies missing!" && exit 1)) && npm run build && echo "Build completed, checking build directory..." && (test -f client/build/index.html && echo "✓ Build verified: index.html exists" || (echo "✗ ERROR: Build failed - index.html not found" && exit 1))
     startCommand: npm start
     envVars:
       - key: NODE_ENV
