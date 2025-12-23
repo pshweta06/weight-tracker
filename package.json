@@ -9,7 +9,9 @@
     "client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "node server/index.js",
-    "install-all": "npm install && cd client && npm install"
+    "install-all": "npm install && cd client && npm install",
+    "postinstall": "cd client && npm install",
+    "heroku-postbuild": "npm run install-all && npm run build"
   },
   "keywords": ["weight", "tracker", "health"],
   "author": "",

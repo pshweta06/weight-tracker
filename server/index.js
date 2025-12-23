@@ -35,9 +35,30 @@ app.use('/api/user', userRoutes);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+  const buildPath = path.join(__dirname, '../client/build');
+  const indexPath = path.join(buildPath, 'index.html');
+  
+  // Check if build directory exists
+  const fs = require('fs');
+  if (!fs.existsSync(buildPath)) {
+    console.error(`Build directory not found at: ${buildPath}`);
+    console.error('Make sure to run: npm run build before starting the server');
+  }
+  
+  app.use(express.static(buildPath));
+  
+  // Serve React app for all non-API routes
+  app.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(500).send('Build files not found. Please ensure the frontend is built.');
+    }
   });
 }
 
