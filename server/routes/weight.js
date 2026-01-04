@@ -4,13 +4,6 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-const getLocalDateString = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
 // All routes require authentication
 router.use(authenticateToken);
 
@@ -24,13 +17,14 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Valid weight value required' });
     }
 
-    const entryDate = date || getLocalDateString();
+    const entryDate = date || new Date().toISOString().split('T')[0];
     const db = getDb();
 
     db.run(
       `INSERT INTO weight_entries (user_id, weight, date)
-       VALUES (?, ?, ?)`,
-      [userId, weight, entryDate],
+       VALUES (?, ?, ?)
+       ON CONFLICT(user_id, date) DO UPDATE SET weight = ?`,
+      [userId, weight, entryDate, weight],
       function(err) {
         if (err) {
           console.error('Database error:', err);
@@ -81,7 +75,7 @@ router.get('/date/:date', (req, res) => {
     const db = getDb();
 
     db.get(
-      'SELECT * FROM weight_entries WHERE user_id = ? AND date = ? ORDER BY created_at DESC',
+      'SELECT * FROM weight_entries WHERE user_id = ? AND date = ?',
       [userId, date],
       (err, row) => {
         if (err) {
@@ -146,7 +140,7 @@ router.get('/period', (req, res) => {
         ORDER BY start_date ASC
       `;
 
-      db.all(query, [userId, getLocalDateString(startDate)], (err, rows) => {
+      db.all(query, [userId, startDate.toISOString().split('T')[0]], (err, rows) => {
         if (err) {
           console.error('Database error:', err);
           return res.status(500).json({ error: 'Failed to fetch weight entries' });
@@ -167,7 +161,7 @@ router.get('/period', (req, res) => {
     } else {
       // For day period, return individual entries
       const query = 'SELECT * FROM weight_entries WHERE user_id = ? AND date >= ? ORDER BY date ASC';
-      db.all(query, [userId, getLocalDateString(startDate)], (err, rows) => {
+      db.all(query, [userId, startDate.toISOString().split('T')[0]], (err, rows) => {
         if (err) {
           console.error('Database error:', err);
           return res.status(500).json({ error: 'Failed to fetch weight entries' });
@@ -177,69 +171,6 @@ router.get('/period', (req, res) => {
     }
   } catch (error) {
     console.error('Get period weights error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Bulk upload weight entries
-router.post('/bulk', (req, res) => {
-  try {
-    const { entries } = req.body;
-    const userId = req.user.id;
-
-    if (!Array.isArray(entries) || entries.length === 0) {
-      return res.status(400).json({ error: 'Entries array is required and must not be empty' });
-    }
-
-    // Validate all entries
-    for (const entry of entries) {
-      if (!entry.weight || isNaN(entry.weight)) {
-        return res.status(400).json({ error: `Invalid weight value for entry: ${JSON.stringify(entry)}` });
-      }
-      if (!entry.date || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date)) {
-        return res.status(400).json({ error: `Invalid date format for entry. Expected YYYY-MM-DD: ${JSON.stringify(entry)}` });
-      }
-    }
-
-    const db = getDb();
-    const results = [];
-    let completed = 0;
-    let errors = [];
-
-    entries.forEach((entry) => {
-      db.run(
-        `INSERT INTO weight_entries (user_id, weight, date)
-         VALUES (?, ?, ?)`,
-        [userId, entry.weight, entry.date],
-        function(err) {
-          completed++;
-          if (err) {
-            console.error(`Error inserting ${entry.date}:`, err);
-            errors.push({ date: entry.date, weight: entry.weight, error: err.message });
-          } else {
-            results.push({
-              id: this.lastID,
-              weight: entry.weight,
-              date: entry.date,
-              updated: false
-            });
-          }
-
-          // When all entries are processed
-          if (completed === entries.length) {
-            res.json({
-              success: results.length,
-              failed: errors.length,
-              total: entries.length,
-              entries: results,
-              errors: errors.length > 0 ? errors : undefined
-            });
-          }
-        }
-      );
-    });
-  } catch (error) {
-    console.error('Bulk upload error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

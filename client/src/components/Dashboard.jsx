@@ -21,6 +21,7 @@ const Dashboard = ({ user, onLogout, onOpenSettings }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [todayEntry, setTodayEntry] = useState(null);
+  const [isEditingToday, setIsEditingToday] = useState(false);
   const [motivationMessage, setMotivationMessage] = useState('');
   const [showConfetti, setShowConfetti] = useState(false);
   const [name, setName] = useState(user?.name || '');
@@ -67,22 +68,17 @@ const Dashboard = ({ user, onLogout, onOpenSettings }) => {
     }
   };
 
-  const getLocalDateString = (date = new Date()) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   const checkTodayEntry = async () => {
     try {
-      const today = getLocalDateString();
+      const today = new Date().toISOString().split('T')[0];
       const response = await weightAPI.getByDate(today);
       if (response.data) {
         setTodayEntry(response.data);
         setCurrentWeight(response.data.weight.toString());
+        setIsEditingToday(true);
       } else {
         setTodayEntry(null);
+        setIsEditingToday(false);
       }
     } catch (err) {
       console.error('Failed to check today entry:', err);
@@ -139,7 +135,7 @@ const Dashboard = ({ user, onLogout, onOpenSettings }) => {
       // Get yesterday's date
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayDate = getLocalDateString(yesterday);
+      const yesterdayDate = yesterday.toISOString().split('T')[0];
       
       // Get yesterday's weight entry
       const yesterdayResponse = await weightAPI.getByDate(yesterdayDate);
@@ -177,6 +173,12 @@ const Dashboard = ({ user, onLogout, onOpenSettings }) => {
       return;
     }
 
+    // Prevent creating a new entry if one already exists for today
+    if (!isEditingToday && todayEntry) {
+      setMessage('Weight entry already exists for today. Please update the existing entry.');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
     setMotivationMessage('');
@@ -184,7 +186,11 @@ const Dashboard = ({ user, onLogout, onOpenSettings }) => {
     try {
       const newWeight = parseFloat(currentWeight);
       await weightAPI.add(newWeight);
-      setMessage('Weight logged successfully!');
+      const successMessage = isEditingToday 
+        ? 'Weight updated successfully!' 
+        : 'Weight logged successfully!';
+      setMessage(successMessage);
+      setIsEditingToday(true);
       await loadWeightEntries();
       await checkTodayEntry();
       
@@ -427,7 +433,10 @@ const Dashboard = ({ user, onLogout, onOpenSettings }) => {
 
         <div className="input-section">
           <div className="input-card">
-            <h2>Log Weight</h2>
+            <h2>{isEditingToday ? 'Update Weight' : 'Log Weight'}</h2>
+            {isEditingToday && (
+              <p className="edit-notice">You already have a weight entry for today. Update it below.</p>
+            )}
             <form onSubmit={handleSubmitWeight}>
               <div className="input-group">
                 <label htmlFor="currentWeight">Today's Weight (kg)</label>
@@ -442,7 +451,7 @@ const Dashboard = ({ user, onLogout, onOpenSettings }) => {
                 />
               </div>
               <button type="submit" disabled={loading} className="submit-button">
-                {loading ? 'Logging...' : 'Log Weight'}
+                {loading ? (isEditingToday ? 'Updating...' : 'Logging...') : (isEditingToday ? 'Update Weight' : 'Log Weight')}
               </button>
             </form>
           </div>
