@@ -46,6 +46,7 @@ export const weightAPI = {
   getByPeriod: (period) => api.get(`/weight/period?period=${period}`),
   getByDate: (date) => api.get(`/weight/date/${date}`),
   add: (weight, date) => api.post('/weight', { weight, date }),
+  bulkAdd: (entries) => api.post('/weight/bulk', { entries }),
   delete: (id) => api.delete(`/weight/${id}`),
 };
 

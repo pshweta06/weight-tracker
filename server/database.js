@@ -41,9 +41,35 @@ const initDatabase = () => {
           weight REAL NOT NULL,
           date DATE NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id),
-          UNIQUE(user_id, date)
+          FOREIGN KEY (user_id) REFERENCES users(id)
         )`);
+
+        // Migration: Remove unique constraint if it exists
+        db.all("PRAGMA index_list('weight_entries')", (err, indexes) => {
+          if (err) return;
+          const hasUniqueConstraint = indexes.some(idx => idx.unique === 1 && idx.origin === 'u');
+          if (hasUniqueConstraint) {
+            console.log('Migrating weight_entries table to remove unique constraint...');
+            db.serialize(() => {
+              db.run('PRAGMA foreign_keys=OFF');
+              db.run('BEGIN TRANSACTION');
+              db.run(`CREATE TABLE weight_entries_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                weight REAL NOT NULL,
+                date DATE NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+              )`);
+              db.run('INSERT INTO weight_entries_new (id, user_id, weight, date, created_at) SELECT id, user_id, weight, date, created_at FROM weight_entries');
+              db.run('DROP TABLE weight_entries');
+              db.run('ALTER TABLE weight_entries_new RENAME TO weight_entries');
+              db.run('COMMIT');
+              db.run('PRAGMA foreign_keys=ON');
+              console.log('Migration completed successfully');
+            });
+          }
+        });
 
         // Create default user if doesn't exist
         db.get('SELECT * FROM users WHERE username = ?', ['admin'], (err, row) => {
